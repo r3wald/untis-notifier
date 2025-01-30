@@ -7,53 +7,59 @@ module.exports = class UntisNotifier {
     constructor(storage, feedClient) {
         this.storage = storage;
         this.client = feedClient;
+        this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+            polling: false,
+            request: {
+                agentOptions: {
+                    keepAlive: true,
+                    family: 4
+                }
+            }
+        });
     }
 
     async go() {
         const storage = new Storage(__dirname + '/../storage');
+
         let since = storage.read('lastRun');
-        const items = await this.client.fetchItems(since);
-        console.log(items.length + ' items fetched');
-        const changes = items.filter(item => item.typeOfChange === 'U');
-        console.log(changes.length + ' changes fetched');
-        await this.notifyViaTelegram(changes);
+
+        const changes =
+                (await this.client.fetchItems(since))
+                .filter(item => item.typeOfChange === 'U')
+                /*.filter((item, index, items) => {
+                    return items.findIndex(item2 => item2.resource_id === item.resource_id) === index;
+                })*/;
+        const messages = this.buildMessages(changes);
+        await this.notifyViaTelegram(messages);
+        await this.notifyViaMail(messages);
+
         storage.write('lastRun', new Date());
+        console.log(`since=${since} messages=${messages.length}`);
     }
 
-    async notifyViaTelegram(changes) {
-        const token = process.env.TELEGRAM_BOT_TOKEN;
-        const bot = new TelegramBot(token, {polling: false});
+    async notifyViaTelegram(messages) {
         const chatId = process.env.TELEGRAM_CHAT_ID;
-        const message = this.buildMessage(changes)
-        await bot.sendMessage(chatId, message);
+        await messages.forEach(async message => {
+            await this.bot.sendMessage(chatId, message);
+        });
+        return await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    async notifyViaMail(changes) {
+    async notifyViaMail(messages) {
         // nodemailer.createTransport({)
     }
 
-    filterDuplicates(changes) {
-        const result = [];
-        return changes.filter(change => {
-            if (result.includes(change.resource_id)) {
-                return false;
-            }
-            result.push(change.resource_id);
-            return true;
-        });
-    }
-
-    buildMessage(changes) {
-        let result = 'Es gibt folgende Änderungen im Stundenplan:\n';
-        changes
+    buildMessages(changes) {
+        return changes
             .sort((a, b) => a.readableDate - b.readableDate)
-            .forEach(change => {
-            result += `Datum: ${change.readableDate}\n`;
-            result += `Fach: ${change.resource.su[0].name}\n`;
-            result += `Art der Änderung: ${change.message}\n`;
-            result += '\n';
-        });
-        return result;
+            .map(change => {
+                let result = 'Änderung im Stundenplan:\n';
+                result += `Datum: ${change.readableDate}\n`;
+                result += `Fach: ${change.resource.su[0].name}\n`;
+                result += `${change.message}\n`;
+                result += '\n';
+                return result;
+            });
     }
 }
 
