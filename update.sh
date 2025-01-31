@@ -13,7 +13,7 @@ git pull origin master
 git checkout master
 npm ci
 
-npm run migrate
+#npm run migrate
 
 PM2_PID=$(pm2 pid $PM2_NAME)
 
