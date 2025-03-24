@@ -1,21 +1,14 @@
 const nodemailer = require('nodemailer');
 const TelegramBot = require("node-telegram-bot-api");
 const Storage = require('./storage');
+const moment = require('moment');
 
 module.exports = class UntisNotifier {
 
     constructor(storage, feedClient) {
         this.storage = storage;
         this.client = feedClient;
-        this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-            polling: false,
-            request: {
-                agentOptions: {
-                    keepAlive: true,
-                    family: 4
-                }
-            }
-        });
+        moment.locale('de-de');
     }
 
     async go() {
@@ -23,12 +16,22 @@ module.exports = class UntisNotifier {
 
         let since = storage.read('lastRun');
 
-        const changes =
-                (await this.client.fetchItems(since))
+        const changes = (await this.client.fetchItems(since))
                 .filter(item => item.typeOfChange === 'U')
-                /*.filter((item, index, items) => {
-                    return items.findIndex(item2 => item2.resource_id === item.resource_id) === index;
-                })*/;
+                .map(item => {
+                    item.readableDate = moment(item.readableDate);
+                    item.message = item.message.replace(/<[^>]*>?/gm, '');
+                    return item;
+                })
+                .sort((a, b) => a.readableDate.valueOf() - b.readableDate.valueOf())
+                .map(item => {
+                    const link = "http://zentrale.fritz.box:3001/feed/" + item.id;
+                    console.log(`${link} "${item.message}"`);
+                    return item;
+                })
+            /*.filter((item, index, items) => {
+                return items.findIndex(item2 => item2.resource_id === item.resource_id) === index;
+            })*/;
         const messages = this.buildMessages(changes);
         await this.notifyViaTelegram(messages);
         await this.notifyViaMail(messages);
@@ -38,9 +41,18 @@ module.exports = class UntisNotifier {
     }
 
     async notifyViaTelegram(messages) {
+        const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+            polling: false,
+            request: {
+                agentOptions: {
+                    keepAlive: true,
+                    family: 4
+                }
+            }
+        });
         const chatId = process.env.TELEGRAM_CHAT_ID;
         await messages.forEach(async message => {
-            await this.bot.sendMessage(chatId, message);
+            await bot.sendMessage(chatId, message, {parse_mode : "HTML"});
         });
         return await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -51,13 +63,15 @@ module.exports = class UntisNotifier {
 
     buildMessages(changes) {
         return changes
-            .sort((a, b) => a.readableDate - b.readableDate)
             .map(change => {
+                moment.locale('de');
+                console.log(moment.locale());
+                console.log(moment.locale('de'));
+                console.log(moment.locale());
+                const subject = change.resource.su[0].longname;
                 let result = 'Änderung im Stundenplan:\n';
-                result += `Datum: ${change.readableDate}\n`;
-                result += `Fach: ${change.resource.su[0].name}\n`;
-                result += `${change.message}\n`;
-                result += '\n';
+                result += '<b>' + change.readableDate.format('L') + ' ' + change.readableDate.format('LT') + ' ' + subject + '</b>\n';
+                result += '<b>' + change.message + '</b>\n';
                 return result;
             });
     }

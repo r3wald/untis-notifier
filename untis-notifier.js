@@ -13,7 +13,7 @@ const storage = new Storage(__dirname + '/storage');
 const client = new UnitisFeedClient(process.env.UNTIS_FEED_URL);
 const notifier = new UntisNotifier(storage, client);
 
-cron.schedule('* * * * *', () => {
+cron.schedule('*/10 * * * * *', () => {
     notifier.go()
         .then(() => {
             // do nothing

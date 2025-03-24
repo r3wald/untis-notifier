@@ -18,7 +18,7 @@ module.exports = class UntisFeedClient {
         let pending;
         let results = [];
         do {
-            //console.log('fetching ' + url);
+            console.log('fetching ' + url);
             const response = await this.client.get(url);
             const data = response.data;
             pending = data.pending;
