@@ -54,7 +54,7 @@ module.exports = class UntisNotifier {
         await messages.forEach(async message => {
             await chatIds.forEach(async chatId => {
                 await bot.sendMessage(chatId, message, {parse_mode: "HTML"});
-            }
+            });
         });
         return await new Promise(resolve => setTimeout(resolve, 1000));
     }
