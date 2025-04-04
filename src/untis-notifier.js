@@ -67,9 +67,6 @@ module.exports = class UntisNotifier {
         return changes
             .map(change => {
                 moment.locale('de');
-                console.log(moment.locale());
-                console.log(moment.locale('de'));
-                console.log(moment.locale());
                 const subject = change.resource.su[0].longname;
                 let result = 'Änderung im Stundenplan:\n';
                 result += '<b>' + change.readableDate.format('L') + ' ' + change.readableDate.format('LT') + ' ' + subject + '</b>\n';
