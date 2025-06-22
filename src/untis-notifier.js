@@ -51,9 +51,9 @@ module.exports = class UntisNotifier {
             }
         });
         const chatIds = process.env.TELEGRAM_CHAT_IDS.split(',');
-        await messages.forEach(async message => {
-            await chatIds.forEach(async chatId => {
-                await bot.sendMessage(chatId, message, {parse_mode: "HTML"});
+        messages.forEach(message => {
+            chatIds.forEach(chatId => {
+                bot.sendMessage(chatId, message, {parse_mode: "HTML"});
             });
         });
         return await new Promise(resolve => setTimeout(resolve, 1000));
